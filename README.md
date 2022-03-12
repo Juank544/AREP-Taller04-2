@@ -1,87 +1,231 @@
-# Project Title
+# TALLER DE DE MODULARIZACIÓN CON VIRTUALIZACIÓN E INTRODUCCIÓN A DOCKER Y A AWS
 
-One Paragraph of project description goes here
+En este taller profundizamos los conceptos de modulación por medio de virtualización usando Docker y AWS.
 
-## Getting Started
+Pre requisitos
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+1. El estudiante conoce Java, Maven
+2. El estudiante sabe desarrollar aplicaciones web en Java
+3. Tiene instalado Docker es su máquina
 
-### Prerequisites
+## DESCRIPCIÓN
 
-What things you need to install the software and how to install them
+El taller consiste en crear una aplicación web pequeña usando el micro-framework de Spark java (http://sparkjava.com/). Una vez tengamos esta aplicación procederemos a construir un container para docker para la aplicación y los desplegaremos y configuraremos en nuestra máquina local. Luego, cerremos un repositorio en DockerHub y subiremos la imagen al repositorio. Finalmente, crearemos una máquina virtual de en AWS, instalaremos Docker , y desplegaremos el contenedor que acabamos de crear.
 
-```
-Give examples
-```
+### **Primera parte crear la aplicación web**
 
-### Installing
+1. Cree un proyecto java usando maven.
+2. Cree la clase principal
 
-A step by step series of examples that tell you how to get a development env running
+~~~
+package co.edu.escuelaing.sparkdockerdemolive;
 
-Say what the step will be
+public class SparkWebServer {
 
-```
-Give the example
-```
+    public static void main(String... args){
+          port(getPort());
+          get("hello", (req,res) -> "Hello Docker!");
+    }
 
-And repeat
+    private static int getPort() {
+        if (System.getenv("PORT") != null) {
+            return Integer.parseInt(System.getenv("PORT"));
+        }
+        return 4567;
+    }
 
-```
-until finished
-```
+}
+~~~
 
-End with an example of getting some data out of the system or using it for a little demo
+3. Importe las dependencias de spark Java en el archivo pom
 
-## Running the tests
+~~~
+<dependencies>
+<!-- https://mvnrepository.com/artifact/com.sparkjava/spark-core -->
+<dependency>
+<groupId>com.sparkjava</groupId>
+<artifactId>spark-core</artifactId>
+<version>2.9.2</version>
+</dependency>
+</dependencies>
+~~~
 
-Explain how to run the automated tests for this system
+4. Asegúrese que el proyecto esté compilando hacia la versión 8 de Java
 
-### Break down into end to end tests
+~~~
+<properties>
+<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+<maven.compiler.source>8</maven.compiler.source>
+<maven.compiler.target>8</maven.compiler.target>
+</properties>
+~~~
 
-Explain what these tests test and why
+5. Asegúrese que el proyecto este copiando las dependencias en el directorio target al compilar el proyecto. Esto es necesario para poder construir una imagen de contenedor de docker usando los archivos ya compilados de java. Para hacer esto use el purgan de dependencias de Maven.
 
-```
-Give an example
-```
+~~~
+<!-- build configuration -->
+<build>
+<plugins>
+<plugin>
+<groupId>org.apache.maven.plugins</groupId>
+<artifactId>maven-dependency-plugin</artifactId>
+<version>3.0.1</version>
+<executions>
+<execution>
+<id>copy-dependencies</id>
+<phase>package</phase>
+<goals><goal>copy-dependencies</goal></goals>
+</execution>
+</executions>
+</plugin>
+</plugins>
+</build>
+~~~
 
-### And coding style tests
+6. Asegúrese que el proyecto compila
 
-Explain what these tests test and why
+`$> mvn clean install`
 
-```
-Give an example
-```
+7. Asegúrese que las dependencias están en el directorio target y que continentemente las dependencia, es decir las librerías necesarias para correr en formato jar. En este caso solo son las dependencias necesarias para correr SparkJava.
 
-## Deployment
+![img1](img/img1.png)
 
-Add additional notes about how to deploy this on a live system
+8. Ejecute el programa invocando la máquina virtual de Java desde la línea de comandos y acceda la url *http:localhost:4567/hello:*
 
-## Built With
+`java -cp "target/classes:target/dependency/*" co.edu.escuelaing.sparkdockerdemolive.SparkWebServer`
 
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+Debería verse algo así:
 
-## Contributing
+![img2](img/img2.png)
 
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
+### **Segunda Parte: crear imagen para docker y subirla**
 
-## Versioning
+1. En la raíz de su proyecto cree un archivo denominado Dockerfile con el siguiente contenido:
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags).
+~~~
+FROM openjdk:8
 
-## Authors
+WORKDIR /usrapp/bin
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
+ENV PORT 6000
 
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+COPY /target/classes /usrapp/bin/classes
+COPY /target/dependency /usrapp/bin/dependency
 
-## License
+CMD ["java","-cp","./classes:./dependency/*","co.edu.escuelaing.sparkdockerdemolive.SparkWebServer"]
+~~~
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+2. Usando la herramienta de línea de comandos de Docker construya la imagen:
 
-## Acknowledgments
+`docker build --tag dockersparkprimer .`
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
+3. Revise que la imagen fue construida
+
+`docker images`
+
+Debería ver algo así:
+
+%> docker images
+
+| REPOSITORY | TAG | IMAGE ID | CREATED | SIZE |
+| - | - | - | - | - |
+| dockersparkprimer | latest | 0c5dd4c040f2 | 49 seconds ago | 514MB |
+| openjdk | 8 | db530b5a3ccf | 39 hours ago | 511MB |
+
+4. A partir de la imagen creada cree tres instancias de un contenedor docker independiente de la consola (opción “-d”) y con el puerto 6000 enlazado a un puerto físico de su máquina (opción -p):
+
+docker run -d -p 34000:6000 --name firstdockercontainer dockersparkprimer
+
+docker run -d -p 34001:6000 --name firstdockercontainer2 dockersparkprimer
+
+docker run -d -p 34002:6000 --name firstdockercontainer3 dockersparkprimer
+
+5. Asegúrese que el contenedor está corriendo
+
+`docker ps`
+
+Debería ver algo así:
+
+%> docker ps
+
+6. Acceda por el browser a http://localhost:34002/hello, o a http://localhost:34000/hello, o a http://localhost:34001/hello para verificar que están corriendo.
+
+![img3](img/img3.png)
+
+7. Use docker-compose para generar automáticamente una configuración docker, por ejemplo un container y una instancia a de mongo en otro container. Cree en la raíz de su directorio el archivo docker-compose.yml con le siguiente contenido:
+
+~~~
+version: '2'
+
+
+services:
+    web:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: web
+        ports:
+            - "8087:6000"
+    db:
+        image: mongo:3.6.1
+        container_name: db
+        volumes:
+            - mongodb:/data/db
+            - mongodb_config:/data/configdb
+        ports:
+            - 27017:27017
+        command: mongod
+        
+volumes:
+    mongodb:
+    mongodb_config:
+~~~
+
+8. Ejecute el docker compose:
+
+`docker-compose up -d`
+
+9. Verifique que se crearon los servicios
+
+`docker ps`
+
+### **Tercera Parte: subir la imagen a Docker Hub**
+
+1. Cree una cuenta en Dockerhub y verifique su correo
+2. Acceda al menu de repositorios y cree un repositorio
+3. En su motor de docker local cree una referencia a su imagen con el nombre del repositorio a donde desea subirla:
+
+    `docker tag dockersparkprimer dnielben/firstsprkwebapprepo`
+4. Verifique que la nueva referencia de imagen existe
+
+   `docker images`
+5. Autentíquese en su cuenta de dockerhub
+   
+    `docker login`
+6. Empuje la imagen al repositorio de Dockerhub
+
+    `docker push dnielben/firstsprkwebapprepo:latest`
+
+### **Cuarta parte: AWS**
+
+1. Acceda a la maquina virtual
+2. Instale Docker
+
+    `sudo yum update -y`
+
+   `sudo yum install docker`
+3. Inicie el servidor de docker
+
+    `sudo service docker start`
+4. configure su usuario en el grupo de docker para no tener que ingresar "sudo" cada vez que invoca un comando
+
+    `sudo usermod -a -G docker ec2-user`
+5. Desconectese de la máquina virtual e ingrese nuevamente para que la configuración de grupos de usuarios tenga efecto.
+6. A partir de la imagen creada en Dockerhub cree una instancia de un contenedor docker independiente de la consola (opción “-d”) y con el puerto 6000 enlazado a un puerto físico de su máquina (opción -p):
+
+    `docker run -d -p 42000:6000 --name firstdockerimageaws dnielben/firstsprkwebapprepo`
+7. Abra los puertos de entrada del security group de la máquina virtual para acceder al servicio
+8. Verifique que pueda acceder en una url similar a esta (la url específica depende de los valores de su maquina virtual EC2)
+
+    `http://ec2-35-175-205-168.compute-1.amazonaws.com:42002/hello`
+9. 
