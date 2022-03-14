@@ -1,13 +1,24 @@
 package co.edu.escuelaing;
 
+import static spark.Spark.get;
+import static spark.Spark.port;
+
 /**
- * Hello world!
- *
+ * @author Juank544
+ * SparkWebServer
  */
 public class App 
 {
     public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        port(getPort());
+        get("/hello", (req,res) -> "Hello docker!");
+    }
+
+    private static int getPort(){
+        if (System.getenv("PORT") != null){
+            return Integer.parseInt(System.getenv("PORT"));
+        }
+        return 4567;
     }
 }

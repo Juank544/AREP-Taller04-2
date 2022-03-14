@@ -227,5 +227,4 @@ volumes:
 7. Abra los puertos de entrada del security group de la máquina virtual para acceder al servicio
 8. Verifique que pueda acceder en una url similar a esta (la url específica depende de los valores de su maquina virtual EC2)
 
-    `http://ec2-35-175-205-168.compute-1.amazonaws.com:42002/hello`
-9. 
+    `http://ec2-35-175-205-168.compute-1.amazonaws.com:42002/hello` 
